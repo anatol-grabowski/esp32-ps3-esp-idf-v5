@@ -16,8 +16,6 @@
 #define  PS3_TAG "PS3_L2CAP"
 
 
-#define PS3_L2CAP_ID_HIDC 0x40
-#define PS3_L2CAP_ID_HIDI 0x41
 
 
 /********************************************************************************/
@@ -55,6 +53,9 @@ static const tL2CAP_APPL_INFO dyn_info = {
 } ;
 
 static tL2CAP_CFG_INFO ps3_cfg_info;
+static int received_psm_requests = 0;
+static uint8_t l2cap_id_hidc = 0;
+static uint8_t l2cap_id_hidi = 0;
 
 bool is_connected = false;
 
@@ -119,7 +120,7 @@ void ps3_l2cap_send_hid( hid_cmd_t *hid_cmd, uint8_t len )
 
     memcpy ((uint8_t *)(p_buf + 1) + p_buf->offset, (uint8_t*)hid_cmd, p_buf->len);
 
-    result = L2CA_DataWrite( PS3_L2CAP_ID_HIDC, p_buf );
+    result = L2CA_DataWrite( l2cap_id_hidc, p_buf );
 
     if (result == L2CAP_DW_SUCCESS)
         ESP_LOGI(PS3_TAG, "[%s] sending command: success", __func__);
@@ -191,7 +192,15 @@ static void ps3_l2cap_deinit_service( char *name, uint16_t psm )
 *******************************************************************************/
 static void ps3_l2cap_connect_ind_cback (BD_ADDR  bd_addr, uint16_t l2cap_cid, uint16_t psm, uint8_t l2cap_id)
 {
-    ESP_LOGI(PS3_TAG, "[%s] bd_addr: %s\n  l2cap_cid: 0x%02x\n  psm: %d\n  id: %d", __func__, bd_addr, l2cap_cid, psm, l2cap_id );
+    ESP_LOGI(PS3_TAG, "[%s] bd_addr: %02x:%02x:%02x:%02x:%02x:%02x\n  l2cap_cid: 0x%02x\n  psm: %d\n  id: %d", 
+             __func__, bd_addr[0], bd_addr[1], bd_addr[2], bd_addr[3], bd_addr[4], bd_addr[5], l2cap_cid, psm, l2cap_id );
+
+    if (psm  == BT_PSM_HIDC)
+        l2cap_id_hidc = l2cap_cid;
+    else if (psm == BT_PSM_HIDI)
+        l2cap_id_hidi = l2cap_cid;
+    else
+        ESP_LOGE(PS3_TAG, "[%s] Unexpected L2CAP ID: %d", __func__, l2cap_id);
 
     /* Send connection pending response to the L2CAP layer. */
     L2CA_CONNECT_RSP (bd_addr, l2cap_id, l2cap_cid, L2CAP_CONN_PENDING, L2CAP_CONN_PENDING, NULL, NULL);
@@ -232,11 +241,12 @@ static void ps3_l2cap_connect_cfm_cback(uint16_t l2cap_cid, uint16_t result)
 *******************************************************************************/
 void ps3_l2cap_config_cfm_cback(uint16_t l2cap_cid, tL2CAP_CFG_INFO *p_cfg)
 {
-    ESP_LOGI(PS3_TAG, "[%s] l2cap_cid: 0x%02x\n  p_cfg->result: %d", __func__, l2cap_cid, p_cfg->result );
+    received_psm_requests++;
+    ESP_LOGI(PS3_TAG, "[%s] l2cap_cid: 0x%02x\n  p_cfg->result: %d\n  received_psm_requests: %d", __func__, l2cap_cid, p_cfg->result, received_psm_requests );
 
     /* The PS3 controller is connected after    */
     /* receiving the second config confirmation */
-    is_connected = l2cap_cid == PS3_L2CAP_ID_HIDI;
+    is_connected = received_psm_requests == 2;
 
     if(is_connected){
         ps3Enable();
@@ -276,7 +286,9 @@ void ps3_l2cap_config_ind_cback(uint16_t l2cap_cid, tL2CAP_CFG_INFO *p_cfg)
 *******************************************************************************/
 void ps3_l2cap_disconnect_ind_cback(uint16_t l2cap_cid, bool ack_needed)
 {
-    ESP_LOGI(PS3_TAG, "[%s] l2cap_cid: 0x%02x\n  ack_needed: %d", __func__, l2cap_cid, ack_needed );
+    received_psm_requests--;
+    is_connected = received_psm_requests == 0;
+    ESP_LOGI(PS3_TAG, "[%s] l2cap_cid: 0x%02x\n  ack_needed: %d\n  received_psm_requests: %d", __func__, l2cap_cid, ack_needed, received_psm_requests);
 }
 
 
