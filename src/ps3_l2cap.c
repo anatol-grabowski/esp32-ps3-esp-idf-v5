@@ -200,7 +200,7 @@ static void ps3_l2cap_connect_ind_cback (BD_ADDR  bd_addr, uint16_t l2cap_cid, u
     else if (psm == BT_PSM_HIDI)
         l2cap_id_hidi = l2cap_cid;
     else
-        ESP_LOGE(PS3_TAG, "[%s] Unexpected L2CAP ID: %d", __func__, l2cap_id);
+        ESP_LOGE(PS3_TAG, "[%s] Unexpected psm: %d", __func__, psm);
 
     /* Send connection pending response to the L2CAP layer. */
     L2CA_CONNECT_RSP (bd_addr, l2cap_id, l2cap_cid, L2CAP_CONN_PENDING, L2CAP_CONN_PENDING, NULL, NULL);
