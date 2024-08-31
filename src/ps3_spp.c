@@ -149,4 +149,10 @@ static void ps3_spp_callback(esp_spp_cb_event_t event, esp_spp_cb_param_t *param
 
         esp_spp_start_srv(ESP_SPP_SEC_NONE,ESP_SPP_ROLE_SLAVE, 0, PS3_SERVER_NAME);
     }
+    else if (event == ESP_SPP_START_EVT) {
+        ESP_LOGI(PS3_TAG, "ESP_SPP_START_EVT");
+    }
+    else if (event == ESP_SPP_SRV_OPEN_EVT) {
+        ESP_LOGI(PS3_TAG, "ESP_SPP_SRV_OPEN_EVT");
+    }
 }
